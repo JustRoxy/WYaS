@@ -1,5 +1,7 @@
 module Lib where
 
+import Control.Applicative (empty)
+import Numeric
 import Text.ParserCombinators.Parsec hiding (spaces)
 
 data LispVal
@@ -14,10 +16,13 @@ data LispVal
 parseExpr :: Parser LispVal
 parseExpr = parseAtom <|> parseString
 
+escaped :: Parser Char
+escaped = char '\\' *> oneOf "\\\"nrtbfv0"
+
 parseString :: Parser LispVal
 parseString = do
   char '"'
-  x <- many (noneOf "\"")
+  x <- many (escaped <|> noneOf "\"")
   char '"'
   return $ String x
 
@@ -31,8 +36,24 @@ parseAtom = do
     "#f" -> Bool False
     _ -> Atom atom
 
+bintodec :: Integral i => i -> i
+bintodec 0 = 0
+bintodec i = 2 * bintodec (div i 10) + mod i 10
+
+parseBasedNumber :: (String -> Integer) -> Parser LispVal
+parseBasedNumber base = Number . base <$> many1 digit
+
+parseBase :: Parser LispVal
+parseBase = do
+  base <- char '#' *> letter
+  parseBasedNumber $ case base of
+    'b' -> bintodec . read
+    'o' -> fst . head . readOct
+    'x' -> fst . head . readHex
+    _ -> read
+
 parseNumber :: Parser LispVal
-parseNumber = Number . read <$> many1 digit
+parseNumber = parseBase <|> parseBasedNumber read
 
 symbol :: Parser Char
 symbol = oneOf "!$%&|*+-/:<=?>@^_~#"
