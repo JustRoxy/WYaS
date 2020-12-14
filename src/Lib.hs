@@ -11,6 +11,7 @@ data LispVal
   | Number Integer
   | String String
   | Bool Bool
+  | Char String
   deriving (Show)
 
 parseExpr :: Parser LispVal
@@ -51,6 +52,9 @@ parseBase = do
     'o' -> fst . head . readOct
     'x' -> fst . head . readHex
     _ -> read
+
+parseChar :: Parser LispVal
+parseChar = string "#\\" >> many (noneOf " ") >>= (return . Char)
 
 parseNumber :: Parser LispVal
 parseNumber = parseBase <|> parseBasedNumber read
