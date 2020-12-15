@@ -15,11 +15,6 @@ parseExpr =
       char ')'
       return x
 
-readExpr :: String -> ThrowsError LispVal
-readExpr input = case parse parseExpr "lisp" input of
-  Left err -> throwError $ Parser err
-  Right val -> return val
-
 isTypeOf :: String -> LispVal -> LispVal
 isTypeOf "string" (String _) = Bool True
 isTypeOf "symbol" (List (Atom "quote" : _)) = Bool True
@@ -34,15 +29,22 @@ parseTypeQuestion = do
   question <- many1 letter <* char '?' <* many space
   isTypeOf question <$> parseExpr
 
-eval :: LispVal -> LispVal
-eval (List [Atom "quote", val]) = val
-eval (List (Atom func : args)) = apply func $ map eval args
-eval val = val
+eval :: LispVal -> ThrowsError LispVal
+eval val@(String _) = return val
+eval val@(Number _) = return val
+eval val@(Bool _) = return val
+eval (List [Atom "quote", val]) = return val
+eval (List (Atom func : args)) = mapM eval args >>= apply func
+eval badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
-apply :: String -> [LispVal] -> LispVal
-apply func args = maybe (Bool False) ($ args) $ lookup func primitives
+apply :: String -> [LispVal] -> ThrowsError LispVal
+apply func args =
+  maybe
+    (throwError $ NotFunction "Unrecognized primitive function args" func)
+    ($ args)
+    $ lookup func primitives
 
-primitives :: [(String, [LispVal] -> LispVal)]
+primitives :: [(String, [LispVal] -> ThrowsError LispVal)]
 primitives =
   [ ("+", numericBinop (+)),
     ("-", numericBinop (-)),
@@ -53,19 +55,20 @@ primitives =
     ("remainder", numericBinop rem)
   ]
 
-numericBinop :: (Integer -> Integer -> Integer) -> [LispVal] -> LispVal
-numericBinop op params = Number . foldl1 op $ map unpackNum params
+numericBinop :: (Integer -> Integer -> Integer) -> [LispVal] -> ThrowsError LispVal
+numericBinop _ singleVal@[_] = throwError $ NumArgs 2 singleVal
+numericBinop op params = Number . foldl1 op <$> mapM unpackNum params
 
-unpackNum :: LispVal -> Integer
-unpackNum (Number n) = n
+unpackNum :: LispVal -> ThrowsError Integer
+unpackNum (Number n) = return n
 --Excercise 2: remove next 6 lines
 unpackNum (String n) =
   let parsed = reads n
    in if null parsed
-        then 0
-        else fst $ head parsed
+        then throwError $ TypeMismatch "number" $ String n
+        else return $ fst $ head parsed
 unpackNum (List [n]) = unpackNum n
-unpackNum _ = 0
+unpackNum notNum = throwError $ TypeMismatch "number" notNum
 
 parseDottedList :: Parser LispVal
 parseDottedList = do
