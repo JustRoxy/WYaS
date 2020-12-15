@@ -9,13 +9,35 @@ data LispVal
   | List [LispVal]
   | DottedList [LispVal] LispVal
   | Number Integer
+  | Decimal Float
   | String String
   | Bool Bool
   | Char String
   deriving (Show)
 
 parseExpr :: Parser LispVal
-parseExpr = parseAtom <|> parseString
+parseExpr =
+  parseAtom <|> parseString <|> try parseDecimal <|> parseNumber <|> parseQuoted
+    <|> do
+      char '('
+      x <- try parseList <|> parseDottedList
+      char ')'
+      return x
+
+parseDottedList :: Parser LispVal
+parseDottedList = do
+  head <- endBy parseExpr spaces
+  tail <- char '.' >> spaces >> parseExpr
+  return $ DottedList head tail
+
+parseQuoted :: Parser LispVal
+parseQuoted = do
+  char '\''
+  x <- parseExpr
+  return $ List [Atom "quote", x]
+
+parseList :: Parser LispVal
+parseList = List <$> sepBy parseExpr spaces
 
 escaped :: Parser Char
 escaped = char '\\' *> oneOf "\\\"nrtbfv0"
@@ -58,6 +80,14 @@ parseChar = string "#\\" >> many (noneOf " ") >>= (return . Char)
 
 parseNumber :: Parser LispVal
 parseNumber = parseBase <|> parseBasedNumber read
+
+-- TODO: Decimal exactness prefix, precision
+parseDecimal :: Parser LispVal
+parseDecimal = do
+  num <- many1 digit
+  char '.'
+  floating <- many1 digit
+  return . Decimal . fst . head . readFloat $ num ++ "." ++ floating
 
 symbol :: Parser Char
 symbol = oneOf "!$%&|*+-/:<=?>@^_~#"
