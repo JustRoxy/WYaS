@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 681ab2c7c557ff0ac3c8c519778ccadcf8d08f4c31aa47792ecf532e0d848603
+-- hash: d83455e974089db90bda2f5b07956d057029f1bea7d9be34eadd37469a0d8992
 
 name:           WYaS
 version:        0.1.0.0
@@ -27,14 +27,19 @@ source-repository head
 
 library
   exposed-modules:
+      Datatypes
+      Errors.Error
       Lib
+      Parser
   other-modules:
       Paths_WYaS
   hs-source-dirs:
       src
   build-depends:
       base >=4.7 && <5
+    , mtl
     , parsec
+    , transformers
   default-language: Haskell2010
 
 executable WYaS-exe
@@ -47,7 +52,9 @@ executable WYaS-exe
   build-depends:
       WYaS
     , base >=4.7 && <5
+    , mtl
     , parsec
+    , transformers
   default-language: Haskell2010
 
 test-suite WYaS-test
@@ -61,5 +68,7 @@ test-suite WYaS-test
   build-depends:
       WYaS
     , base >=4.7 && <5
+    , mtl
     , parsec
+    , transformers
   default-language: Haskell2010

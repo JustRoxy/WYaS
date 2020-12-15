@@ -4,6 +4,4 @@ import Lib
 import System.Environment (getArgs)
 
 main :: IO ()
-main = do
-  args <- getArgs
-  putStrLn $ readExpr $ head args
+main = getArgs >>= print . eval . readExpr . (!! 0)
