@@ -1,6 +1,6 @@
 module Parser where
 
-import Control.Monad.Error (MonadError (throwError))
+import Control.Monad.Error (throwError)
 import Data.Functor
 import Data.Void
 import Datatypes
@@ -16,7 +16,9 @@ parseExpr =
   parseAtom <|> parseString <|> try parseDecimal <|> parseNumber <|> parseQuoted
     <|> do
       char '('
+      space
       x <- try parseList <|> parseDottedList
+      space
       char ')'
       return x
 
@@ -57,8 +59,45 @@ primitives =
     ("/", numericBinop div),
     ("mod", numericBinop mod),
     ("quotient", numericBinop quot),
-    ("remainder", numericBinop rem)
+    ("remainder", numericBinop rem),
+    ("=", numBoolBinop (==)),
+    ("<", numBoolBinop (==)),
+    (">", numBoolBinop (==)),
+    ("/=", numBoolBinop (==)),
+    (">=", numBoolBinop (==)),
+    ("<=", numBoolBinop (==)),
+    ("&&", boolBoolBinop (==)),
+    ("||", boolBoolBinop (==)),
+    ("string=?", strBoolBinop (==)),
+    ("string?", strBoolBinop (>)),
+    ("string<=?", strBoolBinop (<=)),
+    ("string>=?", strBoolBinop (>=))
   ]
+
+boolBinop :: (LispVal -> ThrowsError a) -> (a -> a -> Bool) -> [LispVal] -> ThrowsError LispVal
+boolBinop unpacker op args
+  | length args /= 2 = throwError $ NumArgs 2 args
+  | otherwise =
+    do
+      left <- unpacker $ head args
+      right <- unpacker $ args !! 1
+      return . Bool $ left `op` right
+
+numBoolBinop = boolBinop unpackNum
+
+strBoolBinop = boolBinop unpackStr
+
+boolBoolBinop = boolBinop unpackBool
+
+unpackStr :: LispVal -> ThrowsError String
+unpackStr (String s) = return s
+unpackStr (Number s) = return $ show s
+unpackStr (Bool s) = return $ show s
+unpackStr notString = throwError $ TypeMismatch "string" notString
+
+unpackBool :: LispVal -> ThrowsError Bool
+unpackBool (Bool b) = return b
+unpackBool notBool = throwError $ TypeMismatch "boolean" notBool
 
 numericBinop :: (Integer -> Integer -> Integer) -> [LispVal] -> ThrowsError LispVal
 numericBinop _ singleVal@[_] = throwError $ NumArgs 2 singleVal
@@ -88,7 +127,7 @@ parseQuoted = do
   return $ List [Atom "quote", x]
 
 parseList :: Parser LispVal
-parseList = List <$> sepBy parseExpr space
+parseList = List <$> sepEndBy parseExpr space
 
 escaped :: Parser Char
 escaped = char '\\' >> oneOf "\\\"nrtbfv0"
@@ -103,7 +142,7 @@ parseString = do
 parseAtom :: Parser LispVal
 parseAtom = do
   first <- letterChar <|> symbol
-  rest <- some (letterChar <|> digitChar <|> symbol)
+  rest <- many (letterChar <|> digitChar <|> symbol)
   let atom = first : rest
   return $ case atom of
     "#t" -> Bool True
@@ -124,7 +163,7 @@ parseBase = do
     'b' -> bintodec . read
     'o' -> fst . head . readOct
     'x' -> fst . head . readHex
-    _ -> read --Should be an error
+    _ -> read -- TODO Should be an error
 
 parseChar :: Parser LispVal
 parseChar = do

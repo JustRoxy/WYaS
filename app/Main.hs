@@ -4,10 +4,10 @@ import Errors.Error
 import Lib
 import Parser
 import System.Environment (getArgs)
+import Text.Pretty.Simple (pPrint)
 
 main :: IO ()
 main = do
   args <- getArgs
-  print args
   let evaled = fmap show $ readExpr (head args) >>= eval
-  print evaled
+  either pPrint pPrint evaled

@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: f3198d9337ca441d74a5d5cc59089f45263b190a08b56ca660eafc9539813f48
+-- hash: c734cbc0294e666b172e22c97e62e867ada3f9cdd4e1ac8499ebba03118ffa4a
 
 name:           WYaS
 version:        0.1.0.0
@@ -40,6 +40,7 @@ library
     , megaparsec
     , mtl
     , parsec
+    , pretty-simple
     , transformers
   default-language: Haskell2010
 
@@ -56,6 +57,7 @@ executable WYaS-exe
     , megaparsec
     , mtl
     , parsec
+    , pretty-simple
     , transformers
   default-language: Haskell2010
 
@@ -73,5 +75,6 @@ test-suite WYaS-test
     , megaparsec
     , mtl
     , parsec
+    , pretty-simple
     , transformers
   default-language: Haskell2010
