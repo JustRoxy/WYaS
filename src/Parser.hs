@@ -22,24 +22,15 @@ parseExpr =
       char ')'
       return x
 
-isTypeOf :: String -> LispVal -> LispVal
-isTypeOf "string" (String _) = Bool True
-isTypeOf "symbol" (List (Atom "quote" : _)) = Bool True
-isTypeOf "symbol" (Atom _) = Bool True
-isTypeOf "list" (List _) = Bool True
-isTypeOf "number" (Decimal _) = Bool True
-isTypeOf "number" (Number _) = Bool True
-isTypeOf _ _ = Bool False
-
-parseTypeQuestion :: Parser LispVal
-parseTypeQuestion = do
-  question <- some letterChar <* char '?' <* many space
-  isTypeOf question <$> parseExpr
-
 eval :: LispVal -> ThrowsError LispVal
 eval val@(String _) = return val
 eval val@(Number _) = return val
 eval val@(Bool _) = return val
+eval (List [Atom "if", pred, conseq, alt]) = do
+  result <- eval pred
+  case result of
+    Bool False -> eval alt
+    _ -> eval conseq
 eval (List [Atom "quote", val]) = return val
 eval (List (Atom func : args)) = mapM eval args >>= apply func
 eval badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
@@ -105,12 +96,13 @@ numericBinop op params = Number . foldl1 op <$> mapM unpackNum params
 
 unpackNum :: LispVal -> ThrowsError Integer
 unpackNum (Number n) = return n
---Excercise 2: remove next 6 lines
+-- Excercise 2: remove next 6 lines
+-- TODO: add decimal support
 unpackNum (String n) =
   let parsed = reads n
    in if null parsed
         then throwError $ TypeMismatch "number" $ String n
-        else return $ fst $ head parsed
+        else return . fst $ head parsed
 unpackNum (List [n]) = unpackNum n
 unpackNum notNum = throwError $ TypeMismatch "number" notNum
 

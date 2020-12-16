@@ -9,5 +9,9 @@ import Text.Pretty.Simple (pPrint)
 main :: IO ()
 main = do
   args <- getArgs
-  let evaled = fmap show $ readExpr (head args) >>= eval
-  either pPrint pPrint evaled
+  let val = readExpr (head args)
+  eitherPrint val
+  let evaled = val >>= eval
+  eitherPrint evaled
+  where
+    eitherPrint = either pPrint pPrint
