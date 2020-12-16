@@ -4,7 +4,7 @@ import Control.Monad.Error (MonadError (throwError))
 import Datatypes
 import Errors.Error
 import Parser
-import Text.ParserCombinators.Parsec (parse)
+import Text.Megaparsec
 
 readExpr :: String -> ThrowsError LispVal
 readExpr input = case parse parseExpr "lisp" input of

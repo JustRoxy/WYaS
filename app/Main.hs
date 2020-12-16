@@ -8,6 +8,6 @@ import System.Environment (getArgs)
 main :: IO ()
 main = do
   args <- getArgs
-
+  print args
   let evaled = fmap show $ readExpr (head args) >>= eval
-  putStrLn $ extractValue $ trapError evaled
+  print evaled

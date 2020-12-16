@@ -1,10 +1,15 @@
 module Parser where
 
 import Control.Monad.Error (MonadError (throwError))
+import Data.Functor
+import Data.Void
 import Datatypes
 import Errors.Error
 import Numeric
-import Text.ParserCombinators.Parsec hiding (spaces)
+import Text.Megaparsec
+import Text.Megaparsec.Char
+
+type Parser = Parsec Void String
 
 parseExpr :: Parser LispVal
 parseExpr =
@@ -26,7 +31,7 @@ isTypeOf _ _ = Bool False
 
 parseTypeQuestion :: Parser LispVal
 parseTypeQuestion = do
-  question <- many1 letter <* char '?' <* many space
+  question <- some letterChar <* char '?' <* many space
   isTypeOf question <$> parseExpr
 
 eval :: LispVal -> ThrowsError LispVal
@@ -72,8 +77,8 @@ unpackNum notNum = throwError $ TypeMismatch "number" notNum
 
 parseDottedList :: Parser LispVal
 parseDottedList = do
-  head <- endBy parseExpr spaces
-  tail <- char '.' >> spaces >> parseExpr
+  head <- endBy parseExpr space
+  tail <- char '.' >> space >> parseExpr
   return $ DottedList head tail
 
 parseQuoted :: Parser LispVal
@@ -83,10 +88,10 @@ parseQuoted = do
   return $ List [Atom "quote", x]
 
 parseList :: Parser LispVal
-parseList = List <$> sepBy parseExpr spaces
+parseList = List <$> sepBy parseExpr space
 
 escaped :: Parser Char
-escaped = char '\\' *> oneOf "\\\"nrtbfv0"
+escaped = char '\\' >> oneOf "\\\"nrtbfv0"
 
 parseString :: Parser LispVal
 parseString = do
@@ -97,8 +102,8 @@ parseString = do
 
 parseAtom :: Parser LispVal
 parseAtom = do
-  first <- letter <|> symbol
-  rest <- many (letter <|> digit <|> symbol)
+  first <- letterChar <|> symbol
+  rest <- some (letterChar <|> digitChar <|> symbol)
   let atom = first : rest
   return $ case atom of
     "#t" -> Bool True
@@ -110,19 +115,22 @@ bintodec 0 = 0
 bintodec i = 2 * bintodec (div i 10) + mod i 10
 
 parseBasedNumber :: (String -> Integer) -> Parser LispVal
-parseBasedNumber base = Number . base <$> many1 digit
+parseBasedNumber base = Number . base <$> some digitChar
 
 parseBase :: Parser LispVal
 parseBase = do
-  base <- char '#' *> letter
+  base <- char '#' >> letterChar
   parseBasedNumber $ case base of
     'b' -> bintodec . read
     'o' -> fst . head . readOct
     'x' -> fst . head . readHex
-    _ -> read
+    _ -> read --Should be an error
 
 parseChar :: Parser LispVal
-parseChar = string "#\\" >> many (noneOf " ") >>= (return . Char)
+parseChar = do
+  string "#\\"
+  r <- many (noneOf " ")
+  (return . Char) r
 
 parseNumber :: Parser LispVal
 parseNumber = parseBase <|> parseBasedNumber read
@@ -130,13 +138,10 @@ parseNumber = parseBase <|> parseBasedNumber read
 -- TODO: Decimal exactness prefix, precision
 parseDecimal :: Parser LispVal
 parseDecimal = do
-  num <- many1 digit
+  num <- many digitChar
   char '.'
-  floating <- many1 digit
+  floating <- many digitChar
   return . Decimal . fst . head . readFloat $ num ++ "." ++ floating
 
 symbol :: Parser Char
 symbol = oneOf "!$%&|*+-/:<=?>@^_~#"
-
-spaces :: Parser ()
-spaces = skipMany1 space

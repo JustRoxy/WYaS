@@ -1,6 +1,7 @@
 module Datatypes where
 
-import Text.ParserCombinators.Parsec (ParseError)
+import Data.Void
+import Text.Megaparsec
 
 data LispVal
   = Atom String
@@ -16,7 +17,7 @@ data LispVal
 data LispError
   = NumArgs Integer [LispVal]
   | TypeMismatch String LispVal
-  | Parser ParseError
+  | Parser (ParseErrorBundle String Void)
   | BadSpecialForm String LispVal
   | NotFunction String String
   | UnboundVar String String

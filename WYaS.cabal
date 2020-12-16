@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: d83455e974089db90bda2f5b07956d057029f1bea7d9be34eadd37469a0d8992
+-- hash: f3198d9337ca441d74a5d5cc59089f45263b190a08b56ca660eafc9539813f48
 
 name:           WYaS
 version:        0.1.0.0
@@ -37,6 +37,7 @@ library
       src
   build-depends:
       base >=4.7 && <5
+    , megaparsec
     , mtl
     , parsec
     , transformers
@@ -52,6 +53,7 @@ executable WYaS-exe
   build-depends:
       WYaS
     , base >=4.7 && <5
+    , megaparsec
     , mtl
     , parsec
     , transformers
@@ -68,6 +70,7 @@ test-suite WYaS-test
   build-depends:
       WYaS
     , base >=4.7 && <5
+    , megaparsec
     , mtl
     , parsec
     , transformers
