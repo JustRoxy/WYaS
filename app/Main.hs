@@ -1,6 +1,7 @@
 module Main where
 
 import Errors.Error
+import Eval
 import Lib
 import Parser
 import System.Environment (getArgs)
