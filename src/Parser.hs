@@ -13,20 +13,22 @@ type Parser = Parsec Void String
 
 parseExpr :: Parser LispVal
 parseExpr =
-  parseAtom <|> parseString <|> try parseDecimal <|> parseNumber <|> parseQuoted
-    <|> do
-      char '('
-      space
-      x <- try parseList <|> parseDottedList
-      space
-      char ')'
-      return x
+  parseAtom <|> parseString <|> try parseDecimal <|> parseNumber <|> parseQuoted <|> parseLists
+
+parseLists :: Parser LispVal
+parseLists = do
+  char '('
+  space
+  x <- try parseDottedList <|> parseList
+  space
+  char ')'
+  return x
 
 parseDottedList :: Parser LispVal
 parseDottedList = do
-  head <- endBy parseExpr space
-  tail <- char '.' >> space >> parseExpr
-  return $ DottedList head tail
+  x <- endBy parseExpr space
+  y <- char '.' >> space >> parseExpr
+  return $ DottedList x y
 
 parseQuoted :: Parser LispVal
 parseQuoted = do
@@ -85,9 +87,9 @@ parseNumber = parseBase <|> parseBasedNumber read
 -- TODO: Decimal exactness prefix, precision
 parseDecimal :: Parser LispVal
 parseDecimal = do
-  num <- many digitChar
+  num <- some digitChar
   char '.'
-  floating <- many digitChar
+  floating <- some digitChar
   return . Decimal . fst . head . readFloat $ num ++ "." ++ floating
 
 symbol :: Parser Char
