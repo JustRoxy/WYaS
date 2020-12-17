@@ -47,6 +47,12 @@ unpackNum (String n) =
 unpackNum (List [n]) = unpackNum n
 unpackNum notNum = throwError $ TypeMismatch "number" notNum
 
+caseFunc :: LispVal -> [LispVal] -> ThrowsError LispVal
+caseFunc ptrn ((List [List v, result]) : xs) = do
+  if ptrn `elem` v then return result else caseFunc ptrn xs
+caseFunc ptrn [] = throwError . BadSpecialForm "non-exhaustive pattern" $ ptrn
+caseFunc _ v = throwError . TypeMismatch "pattern" $ List v
+
 eval :: LispVal -> ThrowsError LispVal
 eval val@(String _) = return val
 eval val@(Number _) = return val
@@ -56,6 +62,9 @@ eval (List [Atom "if", pred, conseq, alt]) = do
   case result of
     Bool False -> eval alt
     _ -> eval conseq
+eval (List (Atom "case" : pred : rest)) = do
+  ptrn <- eval pred
+  caseFunc ptrn rest
 eval (List [Atom "quote", val]) = return val
 eval (List (Atom func : args)) = mapM eval args >>= apply func
 eval (List [v]) = eval v
