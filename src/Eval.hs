@@ -5,7 +5,6 @@ module Eval where
 import Control.Monad
 import Control.Monad.Error (catchError, return, throwError)
 import Datatypes
-import Debug.Trace
 import Errors.Error
 
 data Unpacker = forall a. Eq a => AnyUnpacker (LispVal -> ThrowsError a)
@@ -78,9 +77,9 @@ apply func args =
     $ lookup func primitives
 
 cond :: [LispVal] -> ThrowsError LispVal
-cond ((List [Bool v, r]) : rest) =
-  trace ("p = " ++ show v ++ ", r = " ++ show r) $
-    if v then return r else cond rest
+cond ((List [Bool v, r]) : rest)
+  | v = return r
+  | otherwise = cond rest
 cond [] = throwError $ BadSpecialForm "exhausted pattern" (Atom "cond")
 cond [List [Atom "else", r]] = return r
 cond d = throwError $ NumArgs 2 d
