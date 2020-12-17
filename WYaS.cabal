@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: c734cbc0294e666b172e22c97e62e867ada3f9cdd4e1ac8499ebba03118ffa4a
+-- hash: 84065427ecf773bc6acf5961133c2000bf49d6ade38b51eff4bb5a72455f27a3
 
 name:           WYaS
 version:        0.1.0.0
@@ -29,6 +29,7 @@ library
   exposed-modules:
       Datatypes
       Errors.Error
+      Eval
       Lib
       Parser
   other-modules:

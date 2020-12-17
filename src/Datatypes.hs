@@ -12,6 +12,7 @@ data LispVal
   | String String
   | Bool Bool
   | Char String
+  deriving (Show, Eq)
 
 showVal :: LispVal -> String
 showVal (String contents) = "\"" ++ contents ++ "\""
@@ -24,7 +25,7 @@ showVal (Bool False) = "#f"
 showVal (List contents) = "(" ++ unwordsList contents ++ ")"
 showVal (DottedList head tail) = "(" ++ unwordsList head ++ " . " ++ showVal tail ++ ")"
 
-instance Show LispVal where show = showVal
+-- instance Show LispVal where show = showVal
 
 unwordsList :: [LispVal] -> String
 unwordsList = unwords . map showVal
@@ -43,7 +44,7 @@ showError (UnboundVar message varname) = message ++ ": " ++ varname
 showError (BadSpecialForm message form) = message ++ ": " ++ show form
 showError (NotFunction message func) = message ++ ": " ++ show func
 showError (NumArgs expected found) = "Expected " ++ show expected ++ " args: found values " ++ unwordsList found
-showError (TypeMismatch expected found) = "Invalid type: expected " ++ expected
+showError (TypeMismatch expected found) = "Invalid type: expected " ++ expected ++ " found: " ++ show found
 showError (Parser parseErr) = "Parse error at " ++ show parseErr
 
 instance Show LispError where show = showError
