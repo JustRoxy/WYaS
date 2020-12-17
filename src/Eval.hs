@@ -84,9 +84,9 @@ cond [] = throwError $ BadSpecialForm "exhausted pattern" (Atom "cond")
 cond [List [Atom "else", r]] = return r
 cond d = throwError $ NumArgs 2 d
 
-elsE :: [LispVal] -> ThrowsError LispVal
-elsE [v] = return $ List [Atom "else", v]
-elsE v = throwError $ NumArgs 1 v
+elseCond :: [LispVal] -> ThrowsError LispVal
+elseCond [v] = return $ List [Atom "else", v]
+elseCond v = throwError $ NumArgs 1 v
 
 primitives :: [(String, [LispVal] -> ThrowsError LispVal)]
 primitives =
@@ -116,7 +116,7 @@ primitives =
     ("eqv?", eqv),
     ("equal?", equal),
     ("cond", cond),
-    ("else", elsE)
+    ("else", elseCond)
   ]
 
 boolBinop :: (LispVal -> ThrowsError a) -> (a -> a -> Bool) -> [LispVal] -> ThrowsError LispVal
