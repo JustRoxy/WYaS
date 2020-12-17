@@ -1,13 +1,13 @@
 module Parser where
 
-import Control.Monad.Error (throwError)
-import Data.Functor
-import Data.Void
-import Datatypes
-import Errors.Error
-import Numeric
-import Text.Megaparsec
-import Text.Megaparsec.Char
+import           Control.Monad.Error  (throwError)
+import           Data.Functor
+import           Data.Void
+import           Datatypes
+import           Errors.Error
+import           Numeric
+import           Text.Megaparsec
+import           Text.Megaparsec.Char
 
 type Parser = Parsec Void String
 
@@ -57,7 +57,7 @@ parseAtom = do
   return $ case atom of
     "#t" -> Bool True
     "#f" -> Bool False
-    _ -> Atom atom
+    _    -> Atom atom
 
 bintodec :: Integral i => i -> i
 bintodec 0 = 0
@@ -73,7 +73,7 @@ parseBase = do
     'b' -> bintodec . read
     'o' -> fst . head . readOct
     'x' -> fst . head . readHex
-    _ -> read -- TODO Should be an error
+    _   -> read -- TODO Should be an error
 
 parseChar :: Parser LispVal
 parseChar = do
