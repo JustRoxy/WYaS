@@ -20,8 +20,11 @@ evalString env expr = runIOThrows . fmap show $ liftThrows (readExpr expr) >>= e
 evalAndPrint :: Env -> String -> IO ()
 evalAndPrint env expr = evalString env expr >>= pPrint
 
-runOne :: String -> IO ()
-runOne expr = primitiveBindings >>= flip evalAndPrint expr
+runOne :: [String] -> IO ()
+runOne [] = hPutStrLn stderr "RUNONE NO ARGS"
+runOne args = do
+  env <- primitiveBindings >>= flip bindVars [("args", List . map String $ drop 1 args)]
+  (runIOThrows . fmap show $ eval env (List [Atom "load", String (head args)])) >>= hPutStrLn stderr
 
 until_ :: Monad m => (a -> Bool) -> m a -> (a -> m ()) -> m ()
 until_ pred prompt action = do
