@@ -11,15 +11,20 @@ data Unpacker = forall a. Eq a => AnyUnpacker (LispVal -> ThrowsError a)
 
 equal :: [LispVal] -> ThrowsError LispVal
 equal [arg1, arg2] = do
-  primitiveEquals <- or <$> mapM (unpackEquals arg1 arg2) [AnyUnpacker unpackNum, AnyUnpacker unpackStr, AnyUnpacker unpackBool]
+  primitiveEquals <-
+    or
+      <$> mapM
+        (unpackEquals arg1 arg2)
+        [AnyUnpacker unpackNum, AnyUnpacker unpackStr, AnyUnpacker unpackBool]
   eqvEquals <- eqv [arg1, arg2]
   return . Bool $ (primitiveEquals || let (Bool x) = eqvEquals in x)
 equal badArgList = throwError $ NumArgs 2 badArgList
 
 unpackEquals :: LispVal -> LispVal -> Unpacker -> ThrowsError Bool
-unpackEquals arg1 arg2 (AnyUnpacker unpacker) = case (==) <$> unpacker arg1 <*> unpacker arg2 of
-  Left _ -> return False
-  Right v -> return v
+unpackEquals arg1 arg2 (AnyUnpacker unpacker) =
+  case (==) <$> unpacker arg1 <*> unpacker arg2 of
+    Left _ -> return False
+    Right v -> return v
 
 unpackStr :: LispVal -> ThrowsError String
 unpackStr (String s) = return s
@@ -38,7 +43,9 @@ numericBinop op params = Number . foldl1 op <$> mapM unpackNum params
 unpackNum :: LispVal -> ThrowsError Integer
 unpackNum (Number n) = return n
 -- Excercise 2: remove next 6 lines
+
 -- TODO: add decimal support
+
 unpackNum (String n) =
   let parsed = reads n
    in if null parsed
@@ -48,9 +55,10 @@ unpackNum (List [n]) = unpackNum n
 unpackNum notNum = throwError $ TypeMismatch "number" notNum
 
 caseFunc :: LispVal -> [LispVal] -> ThrowsError LispVal
-caseFunc ptrn ((List [List v, result]) : xs) = do
-  if ptrn `elem` v then return result else caseFunc ptrn xs
-caseFunc ptrn [] = throwError . BadSpecialForm "non-exhaustive pattern" $ ptrn
+caseFunc ptrn ((List [List v, result]) : xs)
+  | ptrn `elem` v = return result
+  | otherwise = caseFunc ptrn xs
+caseFunc ptrn [] = throwError . BadSpecialForm "non exhaustive pattern" $ ptrn
 caseFunc _ v = throwError . TypeMismatch "pattern" $ List v
 
 eval :: LispVal -> ThrowsError LispVal
@@ -89,7 +97,7 @@ cond :: [LispVal] -> ThrowsError LispVal
 cond ((List [Bool v, r]) : rest)
   | v = return r
   | otherwise = cond rest
-cond [] = throwError $ BadSpecialForm "exhausted pattern" (Atom "cond")
+cond [] = throwError $ BadSpecialForm "non exhaustive pattern" (Atom "cond")
 cond [List [Atom "else", r]] = return r
 cond d = throwError $ NumArgs 2 d
 
@@ -128,14 +136,17 @@ primitives =
     ("else", elseCond)
   ]
 
-boolBinop :: (LispVal -> ThrowsError a) -> (a -> a -> Bool) -> [LispVal] -> ThrowsError LispVal
+boolBinop ::
+  (LispVal -> ThrowsError a) ->
+  (a -> a -> Bool) ->
+  [LispVal] ->
+  ThrowsError LispVal
 boolBinop unpacker op args
   | length args /= 2 = throwError $ NumArgs 2 args
-  | otherwise =
-    do
-      left <- unpacker $ head args
-      right <- unpacker $ args !! 1
-      return . Bool $ left `op` right
+  | otherwise = do
+    left <- unpacker $ head args
+    right <- unpacker $ args !! 1
+    return . Bool $ left `op` right
 
 numBoolBinop = boolBinop unpackNum
 
@@ -144,12 +155,12 @@ strBoolBinop = boolBinop unpackStr
 boolBoolBinop = boolBinop unpackBool
 
 -- This is straight up fucked and i dont like it
+
 eqv :: [LispVal] -> ThrowsError LispVal
 eqv [Atom a, Atom b] = return . Bool $ a == b
 eqv [List [], List []] = return $ Bool True
-eqv [List x, List y] = do
-  v <- zipWithM (\f s -> equal [f, s]) x y
-  return . Bool $ all (\(Bool x) -> x) v
+eqv [List x, List y] =
+  Bool . all (\(Bool x) -> x) <$> zipWithM (\f s -> equal [f, s]) x y
 eqv [DottedList a c, DottedList b d] = do
   listCompare <- eqv [List a, List b] >>= unpackBool
   dotCompare <- eqv [c, d] >>= unpackBool
