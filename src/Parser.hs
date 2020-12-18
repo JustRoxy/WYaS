@@ -15,6 +15,9 @@ parseExpr :: Parser LispVal
 parseExpr =
   parseAtom <|> parseString <|> try parseDecimal <|> parseNumber <|> parseQuoted <|> parseLists
 
+parseExprList :: Parser [LispVal]
+parseExprList = endBy parseExpr space
+
 parseLists :: Parser LispVal
 parseLists = do
   char '('

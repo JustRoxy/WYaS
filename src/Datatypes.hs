@@ -3,6 +3,7 @@ module Datatypes where
 import Control.Monad.Trans.Error
 import Data.IORef
 import Data.Void
+import System.IO
 import Text.Megaparsec
 
 data LispVal
@@ -16,6 +17,8 @@ data LispVal
   | Char String
   | PrimitiveFunc ([LispVal] -> ThrowsError LispVal)
   | Func {params :: [String], vararg :: Maybe String, body :: [LispVal], closure :: Env}
+  | IOFunc ([LispVal] -> IOThrowsError LispVal)
+  | Port Handle
 
 type Env = IORef [(String, IORef LispVal)]
 
@@ -41,6 +44,8 @@ showVal Func {params = args, vararg = varargs, body = body, closure = env} =
            Just args -> " . " ++ args
        )
     ++ ") ...)"
+showVal (Port _) = "<IO port>"
+showVal (IOFunc _) = "<IO primitive>"
 
 instance Show LispVal where show = showVal
 
