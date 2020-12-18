@@ -3,8 +3,6 @@ module Errors.Error where
 import Control.Monad.Error
 import Datatypes
 
-type ThrowsError = Either LispError
-
 instance Error LispError where
   noMsg = Default "An error has occurred"
   strMsg = Default

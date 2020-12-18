@@ -4,9 +4,10 @@ module Eval where
 
 import Control.Monad
 import Control.Monad.Error (catchError, liftIO, return, throwError)
+import Data.Maybe
 import Datatypes
+import Debug.Trace (trace)
 import Env
-import Errors.Error
 
 data Unpacker = forall a. Eq a => AnyUnpacker (LispVal -> ThrowsError a)
 
@@ -55,18 +56,19 @@ unpackNum (String n) =
 unpackNum (List [n]) = unpackNum n
 unpackNum notNum = throwError $ TypeMismatch "number" notNum
 
-caseFunc :: LispVal -> [LispVal] -> ThrowsError LispVal
-caseFunc ptrn ((List [List v, result]) : xs)
-  | ptrn `elem` v = return result
-  | otherwise = caseFunc ptrn xs
-caseFunc ptrn [] = throwError . BadSpecialForm "non exhaustive pattern" $ ptrn
-caseFunc _ v = throwError . TypeMismatch "pattern" $ List v
+elemV :: LispVal -> [LispVal] -> Bool
+elemV _ [] = False
+elemV value (x : xs) = case eqv [value, x] of
+  Left _ -> elemV value xs
+  Right (Bool False) -> elemV value xs
+  Right (Bool True) -> True
 
 eval :: Env -> LispVal -> IOThrowsError LispVal
 eval env val@(String _) = return val
 eval env val@(Number _) = return val
 eval env val@(Bool _) = return val
 eval env (Atom id) = getVar env id
+eval env (List [Atom "quote", val]) = return val
 eval env (List [Atom "if", pred, conseq, alt]) = do
   result <- eval env pred
   case result of
@@ -75,13 +77,24 @@ eval env (List [Atom "if", pred, conseq, alt]) = do
 eval env (List (Atom "case" : pred : rest)) = do
   ptrn <- eval env pred
   liftThrows $ caseFunc ptrn rest
-eval env (List [Atom "quote", val]) = return val
 eval env (List [Atom "set!", Atom var, form]) = eval env form >>= setVar env var
 eval env (List [Atom "define", Atom var, form]) = eval env form >>= defineVar env var
-eval env (List (Atom func : args)) = mapM (eval env) args >>= liftThrows . apply func
-eval env (List [v]) = eval env v
-eval env (List v) = mapM (eval env) v >>= (return . List)
+eval env (List (Atom "define" : List (Atom var : params) : body)) = makeNormalFunc env params body >>= defineVar env var
+eval env (List (Atom "define" : DottedList params varargs : body)) = makeVarargs varargs env params body
+eval env (List (Atom "lambda" : List params : body)) = makeNormalFunc env params body
+eval env (List (Atom "lambda" : DottedList params varargs : body)) = makeVarargs varargs env params body
+eval env (List (Atom "lambda" : varargs@(Atom _) : body)) = makeVarargs varargs env [] body
+eval env (List (function : args)) = do
+  func <- eval env function
+  argVals <- mapM (eval env) args
+  apply func argVals
 eval env badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
+
+makeFunc varargs env params body = return $ Func (map showVal params) varargs body env
+
+makeNormalFunc = makeFunc Nothing
+
+makeVarargs = makeFunc . Just . showVal
 
 cons :: [LispVal] -> ThrowsError LispVal
 cons [x1, List []] = return $ List [x1]
@@ -90,18 +103,31 @@ cons [x, DottedList xs xlast] = return $ DottedList (x : xs) xlast
 cons [x1, x2] = return $ DottedList [x1] x2
 cons badArgList = throwError $ NumArgs 2 badArgList
 
-apply :: String -> [LispVal] -> ThrowsError LispVal
-apply func args =
-  maybe
-    (throwError $ NotFunction "Unrecognized primitive function args" func)
-    ($ args)
-    $ lookup func primitives
+apply :: LispVal -> [LispVal] -> IOThrowsError LispVal
+apply (PrimitiveFunc func) args = liftThrows $ func args
+apply (Func params varargs body closure) args =
+  if num params /= num args && isNothing varargs
+    then throwError $ NumArgs (num params) args
+    else (liftIO . bindVars closure $ zip params args) >>= bindVarArgs varargs >>= evalBody
+  where
+    remainingArgs = drop (length params) args
+    num = toInteger . length
+    evalBody env = last <$> mapM (eval env) body
+    bindVarArgs arg env = case arg of
+      Just argName -> liftIO $ bindVars env [(argName, List remainingArgs)]
+      Nothing -> return env
+apply f _ = throwError $ NotFunction "Application to a non-function" (show f)
+
+caseFunc :: LispVal -> [LispVal] -> ThrowsError LispVal
+caseFunc ptrn ((List [List v, result]) : xs) = if ptrn `elemV` v then return result else caseFunc ptrn xs
+caseFunc ptrn [] = throwError . BadSpecialForm "non-exhaustive patterns" $ ptrn
+caseFunc _ v = throwError . TypeMismatch "pattern" $ List v
 
 cond :: [LispVal] -> ThrowsError LispVal
 cond ((List [Bool v, r]) : rest)
   | v = return r
   | otherwise = cond rest
-cond [] = throwError $ BadSpecialForm "non exhaustive pattern" (Atom "cond")
+cond [] = throwError $ BadSpecialForm "non-exhaustive patterns" (Atom "cond")
 cond [List [Atom "else", r]] = return r
 cond d = throwError $ NumArgs 2 d
 
@@ -139,6 +165,11 @@ primitives =
     ("cond", cond),
     ("else", elseCond)
   ]
+
+primitiveBindings :: IO Env
+primitiveBindings = nullEnv >>= flip bindVars (map makePrimitiveFunc primitives)
+  where
+    makePrimitiveFunc (var, func) = (var, PrimitiveFunc func)
 
 boolBinop ::
   (LispVal -> ThrowsError a) ->

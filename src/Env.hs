@@ -7,10 +7,6 @@ import Data.Maybe (isJust)
 import Datatypes
 import Errors.Error
 
-type Env = IORef [(String, IORef LispVal)]
-
-type IOThrowsError = ErrorT LispError IO
-
 nullEnv :: IO Env
 nullEnv = newIORef []
 

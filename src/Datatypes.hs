@@ -1,5 +1,7 @@
 module Datatypes where
 
+import Control.Monad.Trans.Error
+import Data.IORef
 import Data.Void
 import Text.Megaparsec
 
@@ -12,7 +14,14 @@ data LispVal
   | String String
   | Bool Bool
   | Char String
-  deriving (Eq)
+  | PrimitiveFunc ([LispVal] -> ThrowsError LispVal)
+  | Func {params :: [String], vararg :: Maybe String, body :: [LispVal], closure :: Env}
+
+type Env = IORef [(String, IORef LispVal)]
+
+type IOThrowsError = ErrorT LispError IO
+
+type ThrowsError = Either LispError
 
 showVal :: LispVal -> String
 showVal (String contents) = "\"" ++ contents ++ "\""
@@ -24,6 +33,14 @@ showVal (Bool True) = "#t"
 showVal (Bool False) = "#f"
 showVal (List contents) = "(" ++ unwordsList contents ++ ")"
 showVal (DottedList head tail) = "(" ++ unwordsList head ++ " . " ++ showVal tail ++ ")"
+showVal (PrimitiveFunc _) = "<primitive>"
+showVal Func {params = args, vararg = varargs, body = body, closure = env} =
+  "(lambda (" ++ unwords (map show args)
+    ++ ( case varargs of
+           Nothing -> ""
+           Just args -> " . " ++ args
+       )
+    ++ ") ...)"
 
 instance Show LispVal where show = showVal
 
