@@ -41,6 +41,7 @@ unpackBool (Bool b) = return b
 unpackBool notBool = throwError $ TypeMismatch "boolean" notBool
 
 numericBinop :: (Integer -> Integer -> Integer) -> [LispVal] -> ThrowsError LispVal
+numericBinop op [] = throwError $ NumArgs 2 [Number 0]
 numericBinop _ singleVal@[_] = throwError $ NumArgs 2 singleVal
 numericBinop op params = Number . foldl1 op <$> mapM unpackNum params
 
@@ -108,6 +109,7 @@ cons badArgList = throwError $ NumArgs 2 badArgList
 
 apply :: LispVal -> [LispVal] -> IOThrowsError LispVal
 apply (PrimitiveFunc func) args = liftThrows $ func args
+apply (IOFunc func) args = func args
 apply (Func params varargs body closure) args =
   if num params /= num args && isNothing varargs
     then throwError $ NumArgs (num params) args
@@ -119,7 +121,7 @@ apply (Func params varargs body closure) args =
     bindVarArgs arg env = case arg of
       Just argName -> liftIO $ bindVars env [(argName, List remainingArgs)]
       Nothing -> return env
-apply f _ = throwError $ NotFunction "Application to a non-function" (show f)
+apply f args = throwError $ NotFunction "Application to a non-function" (show f ++ " with " ++ show args)
 
 caseFunc :: LispVal -> [LispVal] -> ThrowsError LispVal
 caseFunc ptrn ((List [List v, result]) : xs) = if ptrn `elemV` v then return result else caseFunc ptrn xs
@@ -242,8 +244,9 @@ boolBoolBinop = boolBinop unpackBool
 eqv :: [LispVal] -> ThrowsError LispVal
 eqv [Atom a, Atom b] = return . Bool $ a == b
 eqv [List [], List []] = return $ Bool True
-eqv [List x, List y] =
-  Bool . all (\(Bool x) -> x) <$> zipWithM (\f s -> equal [f, s]) x y
+eqv [List x, List y]
+  | length x == length y = Bool . all (\(Bool x) -> x) <$> zipWithM (\f s -> equal [f, s]) x y
+  | otherwise = return $ Bool False
 eqv [DottedList a c, DottedList b d] = do
   listCompare <- eqv [List a, List b] >>= unpackBool
   dotCompare <- eqv [c, d] >>= unpackBool
