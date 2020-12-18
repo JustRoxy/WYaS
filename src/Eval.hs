@@ -41,6 +41,7 @@ unpackBool (Bool b) = return b
 unpackBool notBool = throwError $ TypeMismatch "boolean" notBool
 
 numericBinop :: (Integer -> Integer -> Integer) -> [LispVal] -> ThrowsError LispVal
+numericBinop op [] = throwError $ NumArgs 2 [Number 0]
 numericBinop _ singleVal@[_] = throwError $ NumArgs 2 singleVal
 numericBinop op params = Number . foldl1 op <$> mapM unpackNum params
 
@@ -243,8 +244,9 @@ boolBoolBinop = boolBinop unpackBool
 eqv :: [LispVal] -> ThrowsError LispVal
 eqv [Atom a, Atom b] = return . Bool $ a == b
 eqv [List [], List []] = return $ Bool True
-eqv [List x, List y] =
-  Bool . all (\(Bool x) -> x) <$> zipWithM (\f s -> equal [f, s]) x y
+eqv [List x, List y]
+  | length x == length y = Bool . all (\(Bool x) -> x) <$> zipWithM (\f s -> equal [f, s]) x y
+  | otherwise = return $ Bool False
 eqv [DottedList a c, DottedList b d] = do
   listCompare <- eqv [List a, List b] >>= unpackBool
   dotCompare <- eqv [c, d] >>= unpackBool
