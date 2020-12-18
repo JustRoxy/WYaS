@@ -12,7 +12,7 @@ data LispVal
   | String String
   | Bool Bool
   | Char String
-  deriving (Show, Eq)
+  deriving (Eq)
 
 showVal :: LispVal -> String
 showVal (String contents) = "\"" ++ contents ++ "\""
@@ -25,7 +25,7 @@ showVal (Bool False) = "#f"
 showVal (List contents) = "(" ++ unwordsList contents ++ ")"
 showVal (DottedList head tail) = "(" ++ unwordsList head ++ " . " ++ showVal tail ++ ")"
 
--- instance Show LispVal where show = showVal
+instance Show LispVal where show = showVal
 
 unwordsList :: [LispVal] -> String
 unwordsList = unwords . map showVal

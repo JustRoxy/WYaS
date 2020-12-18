@@ -1,21 +1,14 @@
 module Main where
 
-import Errors.Error
-import Eval
+import IO
 import Lib
-import Parser
 import System.Environment (getArgs)
 import Text.Pretty.Simple (pPrint)
 
 main :: IO ()
 main = do
   args <- getArgs
-  let val = readExpr (head args)
-  pPrint "Expression"
-  eitherPrint val
-
-  pPrint "Evaluated expression"
-  let evaled = val >>= eval
-  eitherPrint evaled
-  where
-    eitherPrint = either pPrint pPrint
+  case length args of
+    0 -> runRepl
+    1 -> evalAndPrint $ head args
+    _ -> putStrLn "Program takes only 0 or 1 argument"

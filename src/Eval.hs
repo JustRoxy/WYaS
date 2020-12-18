@@ -58,7 +58,7 @@ caseFunc :: LispVal -> [LispVal] -> ThrowsError LispVal
 caseFunc ptrn ((List [List v, result]) : xs)
   | ptrn `elem` v = return result
   | otherwise = caseFunc ptrn xs
-caseFunc ptrn [] = throwError . BadSpecialForm "non-exhaustive pattern" $ ptrn
+caseFunc ptrn [] = throwError . BadSpecialForm "non exhaustive pattern" $ ptrn
 caseFunc _ v = throwError . TypeMismatch "pattern" $ List v
 
 eval :: LispVal -> ThrowsError LispVal
@@ -97,7 +97,7 @@ cond :: [LispVal] -> ThrowsError LispVal
 cond ((List [Bool v, r]) : rest)
   | v = return r
   | otherwise = cond rest
-cond [] = throwError $ BadSpecialForm "exhausted pattern" (Atom "cond")
+cond [] = throwError $ BadSpecialForm "non exhaustive pattern" (Atom "cond")
 cond [List [Atom "else", r]] = return r
 cond d = throwError $ NumArgs 2 d
 
