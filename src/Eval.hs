@@ -108,6 +108,7 @@ cons badArgList = throwError $ NumArgs 2 badArgList
 
 apply :: LispVal -> [LispVal] -> IOThrowsError LispVal
 apply (PrimitiveFunc func) args = liftThrows $ func args
+apply (IOFunc func) args = func args
 apply (Func params varargs body closure) args =
   if num params /= num args && isNothing varargs
     then throwError $ NumArgs (num params) args
@@ -119,7 +120,7 @@ apply (Func params varargs body closure) args =
     bindVarArgs arg env = case arg of
       Just argName -> liftIO $ bindVars env [(argName, List remainingArgs)]
       Nothing -> return env
-apply f _ = throwError $ NotFunction "Application to a non-function" (show f)
+apply f args = throwError $ NotFunction "Application to a non-function" (show f ++ " with " ++ show args)
 
 caseFunc :: LispVal -> [LispVal] -> ThrowsError LispVal
 caseFunc ptrn ((List [List v, result]) : xs) = if ptrn `elemV` v then return result else caseFunc ptrn xs
