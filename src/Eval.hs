@@ -3,8 +3,9 @@
 module Eval where
 
 import Control.Monad
-import Control.Monad.Error (catchError, return, throwError)
+import Control.Monad.Error (catchError, liftIO, return, throwError)
 import Datatypes
+import Env
 import Errors.Error
 
 data Unpacker = forall a. Eq a => AnyUnpacker (LispVal -> ThrowsError a)
@@ -61,23 +62,26 @@ caseFunc ptrn ((List [List v, result]) : xs)
 caseFunc ptrn [] = throwError . BadSpecialForm "non exhaustive pattern" $ ptrn
 caseFunc _ v = throwError . TypeMismatch "pattern" $ List v
 
-eval :: LispVal -> ThrowsError LispVal
-eval val@(String _) = return val
-eval val@(Number _) = return val
-eval val@(Bool _) = return val
-eval (List [Atom "if", pred, conseq, alt]) = do
-  result <- eval pred
+eval :: Env -> LispVal -> IOThrowsError LispVal
+eval env val@(String _) = return val
+eval env val@(Number _) = return val
+eval env val@(Bool _) = return val
+eval env (Atom id) = getVar env id
+eval env (List [Atom "if", pred, conseq, alt]) = do
+  result <- eval env pred
   case result of
-    Bool False -> eval alt
-    _ -> eval conseq
-eval (List (Atom "case" : pred : rest)) = do
-  ptrn <- eval pred
-  caseFunc ptrn rest
-eval (List [Atom "quote", val]) = return val
-eval (List (Atom func : args)) = mapM eval args >>= apply func
-eval (List [v]) = eval v
-eval (List v) = mapM eval v >>= (return . List)
-eval badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
+    Bool False -> eval env alt
+    _ -> eval env conseq
+eval env (List (Atom "case" : pred : rest)) = do
+  ptrn <- eval env pred
+  liftThrows $ caseFunc ptrn rest
+eval env (List [Atom "quote", val]) = return val
+eval env (List [Atom "set!", Atom var, form]) = eval env form >>= setVar env var
+eval env (List [Atom "define", Atom var, form]) = eval env form >>= defineVar env var
+eval env (List (Atom func : args)) = mapM (eval env) args >>= liftThrows . apply func
+eval env (List [v]) = eval env v
+eval env (List v) = mapM (eval env) v >>= (return . List)
+eval env badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
 cons :: [LispVal] -> ThrowsError LispVal
 cons [x1, List []] = return $ List [x1]
