@@ -26,6 +26,11 @@ dependencies:
 - transformers
 - megaparsec
 - pretty-simple
+- text
+- text-show
+
+default-extensions:
+- OverloadedStrings
 
 library:
   source-dirs: src
