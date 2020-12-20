@@ -2,71 +2,76 @@ module Datatypes where
 
 import Control.Monad.Trans.Error
 import Data.IORef
+import qualified Data.Text as T
 import Data.Void
 import System.IO
 import Text.Megaparsec
+import TextShow
 
 data LispVal
-  = Atom String
+  = Atom T.Text
   | List [LispVal]
   | DottedList [LispVal] LispVal
   | Number Integer
   | Decimal Float
-  | String String
+  | String T.Text
   | Bool Bool
-  | Char String
+  | Char T.Text
   | PrimitiveFunc ([LispVal] -> ThrowsError LispVal)
-  | Func {params :: [String], vararg :: Maybe String, body :: [LispVal], closure :: Env}
+  | Func {params :: [T.Text], vararg :: Maybe T.Text, body :: [LispVal], closure :: Env}
   | IOFunc ([LispVal] -> IOThrowsError LispVal)
   | Port Handle
 
-type Env = IORef [(String, IORef LispVal)]
+type Env = IORef [(T.Text, IORef LispVal)]
 
 type IOThrowsError = ErrorT LispError IO
 
 type ThrowsError = Either LispError
 
-showVal :: LispVal -> String
-showVal (String contents) = "\"" ++ contents ++ "\""
-showVal (Char contents) = "'" ++ contents ++ "'"
-showVal (Decimal contents) = show contents
+showVal :: LispVal -> T.Text
+showVal (String contents) = "\"" <> contents <> "\""
+showVal (Char contents) = "'" <> contents <> "'"
+showVal (Decimal contents) = showt contents
 showVal (Atom name) = name
-showVal (Number contents) = show contents
+showVal (Number contents) = showt contents
 showVal (Bool True) = "#t"
 showVal (Bool False) = "#f"
-showVal (List contents) = "(" ++ unwordsList contents ++ ")"
-showVal (DottedList head tail) = "(" ++ unwordsList head ++ " . " ++ showVal tail ++ ")"
+showVal (List contents) = "(" <> unwordsList contents <> ")"
+showVal (DottedList head tail) = "(" <> unwordsList head <> " . " <> showVal tail <> ")"
 showVal (PrimitiveFunc _) = "<primitive>"
 showVal Func {params = args, vararg = varargs, body = body, closure = env} =
-  "(lambda (" ++ unwords (map show args)
-    ++ ( case varargs of
+  "(lambda (" <> T.unwords (map showt args)
+    <> ( case varargs of
            Nothing -> ""
-           Just args -> " . " ++ args
+           Just args -> " . " <> args
        )
-    ++ ") ...)"
+    <> ") ...)"
 showVal (Port _) = "<IO port>"
 showVal (IOFunc _) = "<IO primitive>"
 
-instance Show LispVal where show = showVal
+instance Show LispVal where show = T.unpack . showVal
 
-unwordsList :: [LispVal] -> String
-unwordsList = unwords . map showVal
+instance TextShow LispVal where
+  showb v = fromString (show v)
+
+unwordsList :: [LispVal] -> T.Text
+unwordsList = T.unwords . map showVal
 
 data LispError
   = NumArgs Integer [LispVal]
-  | TypeMismatch String LispVal
-  | Parser (ParseErrorBundle String Void)
-  | BadSpecialForm String LispVal
-  | NotFunction String String
-  | UnboundVar String String
-  | Default String
+  | TypeMismatch T.Text LispVal
+  | Parser (ParseErrorBundle T.Text Void)
+  | BadSpecialForm T.Text LispVal
+  | NotFunction T.Text T.Text
+  | UnboundVar T.Text T.Text
+  | Default T.Text
 
-showError :: LispError -> String
-showError (UnboundVar message varname) = message ++ ": " ++ varname
-showError (BadSpecialForm message form) = message ++ ": " ++ show form
-showError (NotFunction message func) = message ++ ": " ++ show func
-showError (NumArgs expected found) = "Expected " ++ show expected ++ " args: found values " ++ unwordsList found
-showError (TypeMismatch expected found) = "Invalid type: expected " ++ expected ++ " found: " ++ show found
-showError (Parser parseErr) = "Parse error at " ++ show parseErr
+showError :: LispError -> T.Text
+showError (UnboundVar message varname) = message <> ": " <> varname
+showError (BadSpecialForm message form) = message <> ": " <> showt form
+showError (NotFunction message func) = message <> ": " <> showt func
+showError (NumArgs expected found) = "Expected " <> showt expected <> " args: found values " <> unwordsList found
+showError (TypeMismatch expected found) = "Invalid type: expected " <> expected <> " found: " <> showt found
+showError (Parser parseErr) = "Parse error at " <> T.pack (show parseErr)
 
-instance Show LispError where show = showError
+instance Show LispError where show = T.unpack . showError

@@ -1,27 +1,29 @@
 module IO where
 
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import Datatypes
 import Env
 import Errors.Error
 import Eval
 import Lib
-import System.IO hiding (try)
+import System.IO
 import Text.Pretty.Simple (pPrint, pPrintString)
 
-flushStr :: String -> IO ()
-flushStr str = putStr str >> hFlush stdout
+flushStr :: T.Text -> IO ()
+flushStr str = T.putStr str >> hFlush stdout
 
-readPrompt :: String -> IO String
-readPrompt prompt = flushStr prompt >> getLine
+readPrompt :: T.Text -> IO T.Text
+readPrompt prompt = flushStr prompt >> T.getLine
 
-evalString :: Env -> String -> IO String
-evalString env expr = runIOThrows . fmap show $ liftThrows (readExpr expr) >>= eval env
+evalString :: Env -> T.Text -> IO T.Text
+evalString env expr = T.pack <$> (runIOThrows . fmap show $ liftThrows (readExpr expr) >>= eval env)
 
-evalAndPrint :: Env -> String -> IO ()
+evalAndPrint :: Env -> T.Text -> IO ()
 evalAndPrint env expr = evalString env expr >>= pPrint
 
-runOne :: [String] -> IO ()
-runOne [] = hPutStrLn stderr "RUNONE NO ARGS"
+runOne :: [T.Text] -> IO ()
+runOne [] = T.hPutStrLn stderr "RUNONE NO ARGS"
 runOne args = do
   env <- primitiveBindings >>= flip bindVars [("args", List . map String $ drop 1 args)]
   (runIOThrows . fmap show $ eval env (List [Atom "load", String (head args)])) >>= hPutStrLn stderr

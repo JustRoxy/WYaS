@@ -2,6 +2,7 @@ module Parser where
 
 import Control.Monad.Error (throwError)
 import Data.Functor
+import qualified Data.Text as T
 import Data.Void
 import Datatypes
 import Errors.Error
@@ -9,7 +10,7 @@ import Numeric
 import Text.Megaparsec
 import Text.Megaparsec.Char
 
-type Parser = Parsec Void String
+type Parser = Parsec Void T.Text
 
 parseExpr :: Parser LispVal
 parseExpr =
@@ -43,14 +44,14 @@ parseList :: Parser LispVal
 parseList = List <$> sepEndBy parseExpr space
 
 escaped :: Parser Char
-escaped = char '\\' >> oneOf "\\\"nrtbfv0"
+escaped = char '\\' >> oneOf (T.unpack "\\\"nrtbfv0")
 
 parseString :: Parser LispVal
 parseString = do
   char '"'
-  x <- many (escaped <|> noneOf "\"")
+  x <- many (escaped <|> noneOf (T.unpack "\""))
   char '"'
-  return $ String x
+  return $ String (T.pack x)
 
 parseAtom :: Parser LispVal
 parseAtom = do
@@ -60,7 +61,7 @@ parseAtom = do
   return $ case atom of
     "#t" -> Bool True
     "#f" -> Bool False
-    _ -> Atom atom
+    _ -> Atom (T.pack atom)
 
 bintodec :: Integral i => i -> i
 bintodec 0 = 0
@@ -81,8 +82,8 @@ parseBase = do
 parseChar :: Parser LispVal
 parseChar = do
   string "#\\"
-  r <- many (noneOf " ")
-  (return . Char) r
+  r <- many . noneOf . T.unpack $ " "
+  (return . Char) (T.pack r)
 
 parseNumber :: Parser LispVal
 parseNumber = parseBase <|> parseBasedNumber read
@@ -96,4 +97,4 @@ parseDecimal = do
   return . Decimal . fst . head . readFloat $ num ++ "." ++ floating
 
 symbol :: Parser Char
-symbol = oneOf "!$%&|*+-/:<=?>@^_~#"
+symbol = oneOf $ T.unpack "!$%&|*+-/:<=?>@^_~#"

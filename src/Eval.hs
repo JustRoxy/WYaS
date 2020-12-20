@@ -5,11 +5,14 @@ module Eval where
 import Control.Monad
 import Control.Monad.Error (catchError, liftIO, return, throwError)
 import Data.Maybe
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import Datatypes
 import Debug.Trace (trace)
 import Env
 import Lib
 import System.IO
+import TextShow
 
 data Unpacker = forall a. Eq a => AnyUnpacker (LispVal -> ThrowsError a)
 
@@ -30,10 +33,10 @@ unpackEquals arg1 arg2 (AnyUnpacker unpacker) =
     Left _ -> return False
     Right v -> return v
 
-unpackStr :: LispVal -> ThrowsError String
+unpackStr :: LispVal -> ThrowsError T.Text
 unpackStr (String s) = return s
-unpackStr (Number s) = return $ show s
-unpackStr (Bool s) = return $ show s
+unpackStr (Number s) = return $ showt s
+unpackStr (Bool s) = return $ showt s
 unpackStr notString = throwError $ TypeMismatch "string" notString
 
 unpackBool :: LispVal -> ThrowsError Bool
@@ -52,7 +55,7 @@ unpackNum (Number n) = return n
 -- TODO: add decimal support
 
 unpackNum (String n) =
-  let parsed = reads n
+  let parsed = reads (T.unpack n)
    in if null parsed
         then throwError . TypeMismatch "number" $ String n
         else return . fst $ head parsed
@@ -121,7 +124,7 @@ apply (Func params varargs body closure) args =
     bindVarArgs arg env = case arg of
       Just argName -> liftIO $ bindVars env [(argName, List remainingArgs)]
       Nothing -> return env
-apply f args = throwError $ NotFunction "Application to a non-function" (show f ++ " with " ++ show args)
+apply f args = throwError $ NotFunction "Application to a non-function" (showt f <> " with " <> showt args)
 
 caseFunc :: LispVal -> [LispVal] -> ThrowsError LispVal
 caseFunc ptrn ((List [List v, result]) : xs) = if ptrn `elemV` v then return result else caseFunc ptrn xs
@@ -140,7 +143,7 @@ elseCond :: [LispVal] -> ThrowsError LispVal
 elseCond [v] = return $ List [Atom "else", v]
 elseCond v = throwError $ NumArgs 1 v
 
-primitives :: [(String, [LispVal] -> ThrowsError LispVal)]
+primitives :: [(T.Text, [LispVal] -> ThrowsError LispVal)]
 primitives =
   [ ("+", numericBinop (+)),
     ("-", numericBinop (-)),
@@ -171,7 +174,7 @@ primitives =
     ("else", elseCond)
   ]
 
-ioPrimitives :: [(String, [LispVal] -> IOThrowsError LispVal)]
+ioPrimitives :: [(T.Text, [LispVal] -> IOThrowsError LispVal)]
 ioPrimitives =
   [ ("apply", applyProc),
     ("open-input-file", makePort ReadMode),
@@ -189,7 +192,7 @@ applyProc [func, List args] = apply func args
 applyProc (func : args) = apply func args
 
 makePort :: IOMode -> [LispVal] -> IOThrowsError LispVal
-makePort mode [String filename] = fmap Port . liftIO $ openFile filename mode
+makePort mode [String filename] = fmap Port . liftIO $ openFile (T.unpack filename) mode
 makePort _ v = throwError $ NumArgs 1 v
 
 closePort :: [LispVal] -> IOThrowsError LispVal
@@ -198,7 +201,7 @@ closePort _ = return $ Bool False
 
 readProc :: [LispVal] -> IOThrowsError LispVal
 readProc [] = readProc [Port stdin]
-readProc [Port port] = liftIO (hGetLine port) >>= liftThrows . readExpr
+readProc [Port port] = liftIO (T.hGetLine port) >>= liftThrows . readExpr
 readProc v = throwError $ NumArgs 1 v
 
 writeProc :: [LispVal] -> IOThrowsError LispVal
@@ -206,11 +209,11 @@ writeProc [obj] = writeProc [obj, Port stdout]
 writeProc [obj, Port port] = liftIO $ hPrint port obj >> return (Bool True)
 
 readContents :: [LispVal] -> IOThrowsError LispVal
-readContents [String filename] = String <$> liftIO (readFile filename)
+readContents [String filename] = String <$> liftIO (T.readFile $ T.unpack filename)
 readContents v = throwError $ NumArgs 1 v
 
-load :: String -> IOThrowsError [LispVal]
-load filename = liftIO (readFile filename) >>= liftThrows . readExprList
+load :: T.Text -> IOThrowsError [LispVal]
+load filename = liftIO (T.readFile $ T.unpack filename) >>= liftThrows . readExprList
 
 readAll :: [LispVal] -> IOThrowsError LispVal
 readAll [String filename] = List <$> load filename
